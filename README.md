@@ -1,5 +1,7 @@
 # On the Specialization of Neural Modules
-<img src="[image name](https://github.com/raillab/specialization_of_neural_modules/blob/main/mouse.png)" alt= “Cartoon of a mouse in a maze” width="250" height="250"/>
+<div align="center">
+<img src="https://github.com/raillab/specialization_of_neural_modules/blob/main/mouse.png" alt="Cartoon of a mouse in a maze" width="250" height="250"></img>
+</div>
 
 Code repository for reproducing the epxeriments from the paper: "On the Specialization of Neural Modules"
 

@@ -1,6 +1,6 @@
 # On the Specialization of Neural Modules
 
-![alt text](https://github.com/raillab/specialization_of_neural_modules/blob/main/mouse.png?raw=true)
+![alt text](https://github.com/raillab/specialization_of_neural_modules/blob/main/mouse.png?raw=true =250x250)
 
 Code repository for reproducing the epxeriments from the paper: "On the Specialization of Neural Modules"
 

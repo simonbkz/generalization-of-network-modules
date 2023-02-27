@@ -1,4 +1,5 @@
-# On the Specialization of Neural Modules <br /> ###Devon Jarvis, Richard Klein, Benjamin Rosman and Andrew M. Saxe
+# On the Specialization of Neural Modules
+###Devon Jarvis, Richard Klein, Benjamin Rosman and Andrew M. Saxe
 <div align="center">
 <img src="https://github.com/raillab/specialization_of_neural_modules/blob/main/mouse.png" alt="Cartoon of a mouse in a maze" width="250" height="250"></img>
 </div>

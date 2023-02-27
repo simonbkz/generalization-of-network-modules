@@ -1,4 +1,7 @@
 # On the Specialization of Neural Modules
+
+![alt text](https://github.com/raillab/specialization_of_neural_modules/blob/main/mouse.png?raw=true)
+
 Code repository for reproducing the epxeriments from the paper: "On the Specialization of Neural Modules"
 
 To reproduce the linear network results from the paper run: "source run.sh". The version of python used is: Python 3.7.3.

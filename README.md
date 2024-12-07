@@ -1,5 +1,5 @@
 # On the Generalization of module Neural Modules in Composite architecture
-#### Simon adaptation of work done by Devon Jarvis, Richard Klein, Benjamin Rosman and Andrew M. Saxe
+#### Simon Bekezulu adaptation of work done by Devon Jarvis, Richard Klein, Benjamin Rosman and Andrew M. Saxe
 <div align="center">
 <img src="https://github.com/raillab/specialization_of_neural_modules/blob/main/mouse.png" alt="Cartoon of a mouse in a maze" width="250" height="250"></img>
 </div>
@@ -7,6 +7,7 @@
 Code repository for reproducing the experiments from the paper: "On the Generalization of module Neural Modules in Compositional architecture"
 ## New Work
 To reporoduce the Relu network results from the paper, run: "source run.sh". To install necessary packages, use: pip install -r requirements.txt.
+
 ## Old Work
 
 

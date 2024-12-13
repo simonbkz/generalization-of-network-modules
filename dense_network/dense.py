@@ -12,6 +12,7 @@ matplotlib.rcParams['text.latex.preamble']=[r"\usepackage{amsmath}"]
 
 def svs(A, U, VT, num_svds, k2):
     # Gets singular values of A using A's singular vectors U and VT (keeps singular values aligned for plotting, unlike np.linalg.svd)
+    # num_svds: choice of number of singular value you want to retain, 
     S = np.dot(U.T, np.dot(A,VT.T))
     small_length = np.min([S.shape[0], S.shape[1]])
     s = np.array([S[i,i] for i in range(small_length)])

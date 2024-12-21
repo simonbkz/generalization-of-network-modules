@@ -27,11 +27,11 @@ def svs(A, U, VT, num_svds, k2):
 #TODO: how are we separating dense from sparse network
 
 def gen_binary_patterns(num_features):
-    # Generates every unique binary digit possible with num_feature bits
-    # do bits translates into (x,y) points (pixels)
+    # This generates compositional features 
     # only applicable for compositional features, non compositional we take all features
-    # TODO: explore in detail the num_features (does this refer to the number of entries in a matrix?)
-    data = np.ones((2**num_features, num_features))*-1.0 #generate data placeholder matrix
+    # assumption is num rows will always be 2**columns (definition of compositional input feature space)
+    data = np.ones((2**num_features, num_features))*-1.0 #generate data placeholder matrix, ensure all entries are -1
+    # below methodology is adopted from where (paper ?)
     for j in np.arange(0, num_features, 1):
         step = 2**(j+1)
         idx = [list(range(i,i+int(step/2))) for i in np.arange(int(step/2),2**num_features,step)]
@@ -53,14 +53,16 @@ def dynamic_formular(n1,n2, k1, k2, r, a_init, num_time_steps, num_svds):
     k2 = 1 #num non-sys outputs
 
     # extracting compositional matrix
-    A = np.dot(np.dot(Y[:n2], X[:n1].T).T, np.dot(Y[:n2],X[:n1].T))
+    # understand from literature why we are reversing the order of data to create Y and X
+    A = np.dot(np.dot(Y[:n2], X[:n1].T).T, np.dot(Y[:n2],X[:n1].T)) #this is 
     B = np.dot(np.dot(Y[:n2].T, Y[:n2]), X[:n1].T)
 
     return sv_trajectory_plots, predicted_sys_norm, predicted_non_sys_norm, quad_norms, U_preds, V_T_preds, sv_inidces
 
 # TODO: Questions to ask
 # TODO: Why are we specifying number of singular values to return if we have a function we use to return lower rank of the matrix
-# TODO: 
+# TODO: where is the methodology of generating binary patterns adopted from
+# TODO: Why are we reversing the order of X and Y from the data
 
 if __name__ =='__main__':
   

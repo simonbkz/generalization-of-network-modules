@@ -56,6 +56,10 @@ def dynamic_formular(n1,n2, k1, k2, r, a_init, num_time_steps, num_svds):
     # understand from literature why we are reversing the order of data to create Y and X
     A = np.dot(np.dot(Y[:n2], X[:n1].T).T, np.dot(Y[:n2],X[:n1].T)) #this is 
     B = np.dot(np.dot(Y[:n2].T, Y[:n2]), X[:n1].T)
+    C = np.dot(np.dot(X[:n1], X[:n1].T))
+    AX = np.dot(np.dot(X[:n1], X[:n1].T).T, np.dot(X[:n1], X[:n1].T))
+
+    # Now we are doing the matrices for non-compositional features (k1, k2)
 
     return sv_trajectory_plots, predicted_sys_norm, predicted_non_sys_norm, quad_norms, U_preds, V_T_preds, sv_inidces
 

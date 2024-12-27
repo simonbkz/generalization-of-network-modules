@@ -53,8 +53,29 @@ def dynamic_formular(n1,n2, k1, k2, r, a_init, num_time_steps, num_svds):
     k2 = 1 #num non-sys outputs
 
     #coding X and Y for ease of testing in this 
-    X = np.flip(gen_binary_patterns(n1).T, axis = 1)
-    Y = np.flip(gen_binary_patterns(n1).T, axis = 1)
+    X = np.flip(gen_binary_patterns(n1).T, axis=1)
+    for i in range(k1):
+        X = np.vstack([X, r*np.eye(2**n1)])
+
+    # Create Dataset labels
+    Y = np.flip(gen_binary_patterns(n1).T, axis=1)
+    for i in range(k2):
+        Y = np.vstack([Y, r*np.eye(2**n1)])
+    Y_keep_feat = np.arange(Y.shape[0])
+    Y_delete = np.random.choice(n1, n1-n2, replace=False)
+    Y_keep_feat = np.delete(Y_keep_feat, Y_delete)
+    Y = Y[Y_keep_feat]
+    print("Input Data: \n", X)
+    print("Initial Labels: \n", Y)
+    batch_size = X.shape[1]
+    start_labels = np.copy(Y)
+    step_size = 0.02
+    tau = 1/(X.shape[1]*step_size)
+
+    num_svds = 2**n1
+    a = np.ones(num_svds)
+    a[:n1] = a[:n1]*7e-7
+    a[n1:] = a[n1:]*8e-7
 
     # extracting compositional matrix
     # understand from literature why we are reversing the order of data to create Y and X
@@ -105,12 +126,12 @@ def dynamic_formular(n1,n2, k1, k2, r, a_init, num_time_steps, num_svds):
     U2 = (1/2**(3*n1))**0.5*((r**2)/(k2*r**2+2**n1))**0.5
     U3 = (1/2**(3*n1))**0.5*((r**2)/(k2*r**2))**0.5
 
-    U_preds = U1*np.dot(Y[:n1],X[:n1].T)
+    U_preds = U1*np.dot(Y[:n2],X[:n1].T)
     for _ in range(k2):
         U_preds = np.vstack([U_preds, U2*B + U3*(C-B)])
 
     if k2 > 0:
-        U_nonsys_part = np.zeros(n2, 2**n1-n1)
+        U_nonsys_part = np.zeros((n2, 2**n1-5))
         for _ in range(k2):
             U_nonsys_part = np.vstack([U_nonsys_part, T])
         U_preds = np.hstack([U_preds, U_nonsys_part])
@@ -148,9 +169,9 @@ def dynamic_formular(n1,n2, k1, k2, r, a_init, num_time_steps, num_svds):
     #predict Frobenius norm trajectories using SV dynamics (partitioned by output only, i.e. full input used for mappings)
     predicted_sys_norm = ((n2*2**n1)/(k2*r**2+2**n1)*sv_trajectory_plots[:SV11_i]**2)**0.5
     if k2 > 0:
-        predicted_non_norm = ((k2*n2*r**2/(k2*r**2+2**n1))*sv_trajectory_plots[:SV11_i]**2 \
+        predicted_non_norm = ((k2*n2*r**2/(k2*r**2+2**n1))*sv_trajectory_plots[:,SV11_i]**2 \
                               + (n1-n2)*sv_trajectory_plots[:,SV12_i]**2 \
-                                + (2**n1-n1)*sv_trajectory_plots[:SV21_i]**2)**0.5
+                                + (2**n1-n1)*sv_trajectory_plots[:,SV21_i]**2)**0.5
     else:
         predicted_non_norm = np.zeros(predicted_sys_norm)
 
@@ -162,9 +183,9 @@ def dynamic_formular(n1,n2, k1, k2, r, a_init, num_time_steps, num_svds):
         predicted_sys_non_norm = ((k2*n2*r**2*2**n1)/((k1*r**2+2**n1)*(k2*r**2+2**n1))*sv_trajectory_plots[:, SV11_i]**2 \
                                     + ((n1-n2)*2**n1)/(k1*r**2+2**n1)*sv_trajectory_plots[:,SV12_i]**2)**0.5
         
-        predicted_non_non_norm = ((k2*n2*r**2*(k1*r**2))/((k1*r**2+2**n1)*(k2*r**2+2**n1))*sv_trajectory_plots[:SV11_i]**2 \
-                                  + ((n1-n2)*(k1*r**2))/(k1*r**2+2**n1)*sv_trajectory_plots[:SV12_i]**2 \
-                                    + (2**n1-n1)*sv_trajectory_plots[:SV21_i]**2)**0.5
+        predicted_non_non_norm = ((k2*n2*r**2*(k1*r**2))/((k1*r**2+2**n1)*(k2*r**2+2**n1))*sv_trajectory_plots[:,SV11_i]**2 \
+                                  + ((n1-n2)*(k1*r**2))/(k1*r**2+2**n1)*sv_trajectory_plots[:,SV12_i]**2 \
+                                    + (2**n1-n1)*sv_trajectory_plots[:,SV21_i]**2)**0.5
     else:
         predicted_sys_non_norm = np.zeros(predicted_sys_norm.shape)
         predicted_non_non_norm = np.zeros(predicted_sys_norm)
@@ -209,8 +230,8 @@ if __name__ =='__main__':
   num_time_steps = 3
   num_svds = 3
 
-  sv_preds, sxv_preds_inv = dynamic_formular(n1,n2,k1,k2,r,a_init,num_time_steps,num_svds)
-  print(sv_preds,sxv_preds_inv)
+#   sv_preds, sxv_preds_inv = dynamic_formular(n1,n2,k1,k2,r,a_init,num_time_steps,num_svds)
+#   print(sv_preds,sxv_preds_inv)
 
   def updater(params, batch):
       # function that updates model parameters
@@ -231,7 +252,7 @@ if __name__ =='__main__':
 
   seed = np.random.randint(0,100000)
   trainings = np.zeros((num_epochs, num_svds, 1))
-  predictions = np.zeros(num_epochs, num_svds, 1)
+  predictions = np.zeros((num_epochs, num_svds, 1))
   sys_norms = np.zeros((num_epochs, 1))
   non_norms = np.zeros((num_epochs, 1))
   sys_sys_norms = np.zeros((num_epochs, 1))
@@ -244,6 +265,7 @@ if __name__ =='__main__':
   preds_sys_non_norms = np.zeros((num_epochs, 1))
   preds_non_sys_norms = np.zeros((num_epochs, 1))
   preds_non_non_norms = np.zeros((num_epochs, 1))
+  losses = np.zeros((num_epochs,1))
 
   #create dataset for training
   X = np.flip(gen_binary_patterns(n1).T, axis = 1)
@@ -251,7 +273,7 @@ if __name__ =='__main__':
       X = np.vstack([X, r*np.eye(2**n1)])
 
   #create dataset for labels
-  Y = np.flit(gen_binary_patterns(n1).T, axis = 1)
+  Y = np.flip(gen_binary_patterns(n1).T, axis = 1)
   for i in range(k2):
       Y = np.vstack([Y, r*np.eye(2**n1)])
   Y_keep_feat = np.arange(Y.shape[0])
@@ -260,6 +282,9 @@ if __name__ =='__main__':
   Y = Y[Y_keep_feat]
   print("input data is: \n",X)
   print("initial labels are: \n", Y)
+  batch_size = X.shape[1]
+  start_labels = np.copy(Y)
+  step_size = 0.02
   #variable defined the same as in the paper, used in dynamics formula
   tau = 1/(X.shape[1]*step_size)
 
@@ -275,8 +300,18 @@ if __name__ =='__main__':
         dynamic_formular(n1, n2, k1, k2, r, a.reshape(1,num_svds), num_epochs, num_svds)
   preds_sys_sys_norms = preds_quad_norms[0]
   preds_non_sys_norms = preds_quad_norms[1]
-  
+  preds_sys_non_norms = preds_quad_norms[2] 
+  preds_non_non_norms = preds_quad_norms[3]
 
+  # we track the SVs of the input-output covariance matrix from the network at the end of each epoch
+  for epoch in range(num_epochs):
+      for batch_start in range(0, X.shape[1], batch_size):
+          batch = (X[:,batch_start:batch_start+batch_size], Y[:,batch_start:batch_start+batch_size])
+          params = updater(params, (X[:,batch_start:batch_start+batch_size], Y[:,batch_start:batch_start+batch_size]))
+      lossr = loss(params, (X,Y))
+      losses[epoch] = lossr
+      print(lossr)
+  
   # sample values 
 #   A = np.array([[1,2,3],[4,5,6],[7,8,9]])
 #   U = A*A.T

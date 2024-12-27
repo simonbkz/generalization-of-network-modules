@@ -311,7 +311,67 @@ if __name__ =='__main__':
       lossr = loss(params, (X,Y))
       losses[epoch] = lossr
       print(lossr)
-  
+      full_map = np.dot(params[1], params[0])
+      _, a, _ = svs(full_map, U, VT, num_svds, k2)
+      traj_real = np.vstack([traj_real, a])
+
+      #Get systematic and non-systematic Frobenius norms 
+      sys_norms[epoch] = np.linalg.norm(full_map[:n2], 'fro')
+      non_norms[epoch] = np.linalg.norm(full_map[n2:], 'fro') 
+
+      #Get quadrant Frobenius norms 
+      sys_sys_norms[epoch] = np.linalg.norm(full_map[:n2,:n1], 'fro')
+      sys_non_norms[epoch] = np.linalg.norm(full_map[n2:,:n1], 'fro')
+      non_sys_norms[epoch] = np.linalg.norm(full_map[:n2,n1:], 'fro')
+      non_non_norms[epoch] = np.linalg.norm(full_map[n2:,n1:], 'fro')
+
+  trainings[:,:,0] = traj_real[1:]
+  colours_arr = [('red','green',r'Prediction $\pi_1$', r'Real $\pi_1$'),('blue','orange',r'Prediction $\pi_2$', r'Real $\pi_2$'),
+                 ('cyan','purple',r'Prediction $\pi_3$', r'Real $\pi_3$')]
+  unique_svs, unique_indices = np.unique(predictions[-1,:], return_index = True)
+  unique_indices = unique_indices[::-1]
+  unique_svs = np.round(unique_svs, 2)[::-1]
+  colours = {unique_indices[i]: colours_arr[i] for i in range(unique_svs.shape[0])} 
+  print("Num Plots: ", trainings.shape[2])
+  for j in [unique_indices[0], unique_indices[1], unique_indices[2]]:
+      identifier = colours[np.round(predictions[-1,j],2)]
+      labelr_real = identifier[3]
+      plt.plot(np.arange(num_epochs), trainings[:,j], color = identifier[1],label=labelr_real)
+  for j in [unique_indices[0], unique_indices[1], unique_indices[2]]:
+      identifier = colours[np.round(predictions[-1,j],2)]
+      labelr_pred = identifier[2]
+      plt.plot(np.arange(num_epochs), predictions[:,j], color = identifier[1], linestyle = 'dashed', label = labelr_pred)
+
+  plt.ylabel('Singular Value')
+  plt.xlabel('Epoch number')
+  plt.grid()
+  plt.axhline(y = 0, color = 'black')
+  plt.axvline(x = 0, color = 'black')
+  plt.legend(loc = 'center', bbox_to_anchor = (0.55, 0.79), ncol = 2)
+  plt.savefig('dSVs.pdf')
+  plt.close()
+
+  #Plot Quadrant norms together
+  plt.plot(sys_sys_norms, color = 'red', label = r'$\Omega_x\Omega_y$-Norm')
+  plt.plot(non_sys_norms, color='blue', label=r'$\Gamma_x\Omega_y$-Norm')
+  plt.plot(sys_non_norms, color='purple', label=r'$\Omega_x\Gamma_y$-Norm')
+  plt.plot(non_non_norms, color='navy', label=r'$\Gamma_x\Gamma_y$-Norm')
+  plt.plot(preds_sys_sys_norms, color='green', label=r'Predicted $\Omega_x\Omega_y$-Norm', linestyle='dashed')
+  plt.plot(preds_non_sys_norms, color='orange', label=r'Predicted $\Gamma_x\Omega_y$-Norm', linestyle='dashed')
+  plt.plot(preds_sys_non_norms, color='lime', label=r'Predicted $\Omega_x\Gamma_y$-Norm', linestyle='dashed')
+  plt.plot(preds_non_non_norms, color='cyan', label=r'Predicted $\Gamma_x\Gamma_y$-Norm', linestyle='dashed')
+  #plt.title("Deep Dynamics of Quadrants Frobenius Norms")
+  plt.ylim([-0.05, np.max([sys_sys_norms,non_sys_norms,sys_non_norms,non_non_norms])+0.55])
+  plt.xlim([-10, num_epochs])
+  plt.axhline(0, color='black')
+  plt.axvline(0, color='black')
+  plt.ylabel("Frobenius Norm")
+  plt.xlabel("Epoch number")
+  plt.legend(loc='upper left', bbox_to_anchor=(0.02, 0.52, 0.5, 0.5), ncol=2)
+  plt.grid()
+  plt.savefig('d_quad_norms_plot.pdf')
+  plt.close() 
+
   # sample values 
 #   A = np.array([[1,2,3],[4,5,6],[7,8,9]])
 #   U = A*A.T

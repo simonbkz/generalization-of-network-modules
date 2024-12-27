@@ -52,16 +52,145 @@ def dynamic_formular(n1,n2, k1, k2, r, a_init, num_time_steps, num_svds):
     k1 = 3 #num non-sys inputs
     k2 = 1 #num non-sys outputs
 
+    #coding X and Y for ease of testing in this 
+    X = np.flip(gen_binary_patterns(n1).T, axis = 1)
+    Y = np.flip(gen_binary_patterns(n1).T, axis = 1)
+
     # extracting compositional matrix
     # understand from literature why we are reversing the order of data to create Y and X
     A = np.dot(np.dot(Y[:n2], X[:n1].T).T, np.dot(Y[:n2],X[:n1].T)) #this is 
     B = np.dot(np.dot(Y[:n2].T, Y[:n2]), X[:n1].T)
-    C = np.dot(np.dot(X[:n1], X[:n1].T))
+    C = np.dot(np.dot(X[:n1].T, X[:n1]),X[:n1].T)
     AX = np.dot(np.dot(X[:n1], X[:n1].T).T, np.dot(X[:n1], X[:n1].T))
 
-    # Now we are doing the matrices for non-compositional features (k1, k2)
+    if k1 > 0 and k2 > 0:
+        XZ = (1/(k1*k2))**0.5*np.eye(2**n1) - (1/((k1*k2)**0.5*2**n1))*np.dot(X[:n1].T, X[:n1])
+        T, H, P = np.linalg.svd(XZ)
+        T = (1/(k2))**0.5*T[:, :2*n1-n1]
+        P = (1/(k1))**0.5*P[:2**n1-n1]
+    else:
+        XZ = (1/(k1))**0.5*np.eye(2**n1) - (1/((k1)**0.5*2**n1))*np.dot(X[:n1].T,X[:n1])
+        T, H, P = np.linalg.svd(XZ)
+        T = (1/(k2))**0.5*T[:, :2**n1-n1]
+        P = (1/(k1))**0.5*P[:2**n1-n1]
+    # predicting the input-output covariance and input SV formula and storing in diagonal matrix
+    # to get correct order Singular Values
+    sv1 = ((k1*r**2+2**n1)*(k2*r**2+2**n1)/2**(6*n1))**0.5
+    sv2 = ((k1*r**2+2**n1)*(k2*r**2)/2**(2*n1))**0.5
+    sv3 = ((k1*k2)**0.5*r**2)/(2**n1)
+    sxv1 = (k1*r**2+2**n1)/2**(n1)
+    sxv3 = (k1*r**2)/(2**n1)
 
-    return sv_trajectory_plots, predicted_sys_norm, predicted_non_sys_norm, quad_norms, U_preds, V_T_preds, sv_inidces
+    sv_preds = sv1*A + sv2*(np.eye(n1) - (1/2**(2*n1))*A)
+    sxv_preds_inv = sxv1*np.eye(n1)
+
+    sxv_preds_inv = [1/sxv_preds_inv[i,i] for i in range(sxv_preds_inv.shape[0]) if sv_preds[i,i] > 0]
+    sv_preds = [sv_preds[i,i] for i in range(sv_preds.shape[0]) if sv_preds[i,i] > 0]
+
+    if k2 > 0:
+        for _ in range(2**n1 - n1): sv_preds.append(sv3)
+        for _ in range(2**n1 -n1): sxv_preds_inv.append(1/sxv3)
+    #When you have non-compositional structure, comp structure will co-exist with non-comp struct
+    unique_svs = np.unique(sv_preds[:n1])[::-1]
+    SV11_i = np.argmax(sv_preds == unique_svs[0])
+    if n1 > n2 and n2 > 0 and k2 > 0:
+        SV12_i = np.argmax(sv_preds == unique_svs[1])
+    else:
+        SV21_i = np.argmax(sv_preds = unique_svs[0])
+    SV21_i = -1
+    sv_indices = [SV11_i, SV12_i, SV21_i]
+
+    # predicting the left singular vectors. Used to get correctly ordered SVs from the simulated network mapping
+    U1 = (1/2**n1)**0.5*(1/(k2*r**2+2**n1))**0.5
+    U2 = (1/2**(3*n1))**0.5*((r**2)/(k2*r**2+2**n1))**0.5
+    U3 = (1/2**(3*n1))**0.5*((r**2)/(k2*r**2))**0.5
+
+    U_preds = U1*np.dot(Y[:n1],X[:n1].T)
+    for _ in range(k2):
+        U_preds = np.vstack([U_preds, U2*B + U3*(C-B)])
+
+    if k2 > 0:
+        U_nonsys_part = np.zeros(n2, 2**n1-n1)
+        for _ in range(k2):
+            U_nonsys_part = np.vstack([U_nonsys_part, T])
+        U_preds = np.hstack([U_preds, U_nonsys_part])
+        U_preds = np.hstack([U_preds, np.zeros((U_preds.shape[0], n2+(k2*2**n1) - (2**n1)))])
+
+    #predicting the transpose right singular vectors. Used to get correctly ordered SVs from the simulated network mapping
+    VT1 = ((2**n1)/(k1*r**2+2**n1))**0.5
+    VT2 = ((r**2)/((2**n1)*(k1*r**2+2**n1)))**0.5
+
+    V_T_preds = VT1*np.eye(n1)
+    for _ in range(k1):
+        V_T_preds = np.hstack([V_T_preds, VT2*X[:n1]])
+
+    V_T_nonsys_part = np.zeros((2**n1 - n1, n1))
+    for _ in range(k1):
+        V_T_nonsys_part = np.hstack([V_T_nonsys_part, P])
+
+    V_T_preds = np.vstack([V_T_preds, V_T_nonsys_part])
+    V_T_preds = np.vstack([V_T_preds, np.zeros((n1+(k1*2**n1) - (2**n1), V_T_preds.shape[1]))])
+
+    #getting SVs in numpy arrays, setting up time indices array and exponential components of SV dynamics formula
+    s = np.array(sv_preds)
+    d_inv = np.array(sxv_preds_inv)
+    taus = (np.arange(0,num_time_steps,1).reshape(num_time_steps,1)/tau)
+    exp_s = np.exp(-2*s[:num_svds]*taus)
+
+    #predict SV trajectories using dynamic formula
+    numerator = s*d_inv
+    denominator = 1 - (1 - (s*d_inv/a_init))*exp_s
+    sv_trajectory_plots = np.zeros(denominator.shape)
+    num_sig_svs = numerator[numerator > 0 ].shape[0]
+    sv_trajectory_plots[:,:num_sig_svs] = numerator[:num_sig_svs].reshape(1,num_sig_svs)/denominator[:,:num_sig_svs]
+
+
+    #predict Frobenius norm trajectories using SV dynamics (partitioned by output only, i.e. full input used for mappings)
+    predicted_sys_norm = ((n2*2**n1)/(k2*r**2+2**n1)*sv_trajectory_plots[:SV11_i]**2)**0.5
+    if k2 > 0:
+        predicted_non_norm = ((k2*n2*r**2/(k2*r**2+2**n1))*sv_trajectory_plots[:SV11_i]**2 \
+                              + (n1-n2)*sv_trajectory_plots[:,SV12_i]**2 \
+                                + (2**n1-n1)*sv_trajectory_plots[:SV21_i]**2)**0.5
+    else:
+        predicted_non_norm = np.zeros(predicted_sys_norm)
+
+    # predict Frobenius norm trajectories using SV dynamics (partition by input and output)
+    predicted_sys_sys_norm = ((n2*2**(2*n1))/((k1*r**2+2**n1)*(k2*r**2+2**n1))*sv_trajectory_plots[:,SV11_i]**2)**0.5
+    predicted_non_sys_norm = ((n2*2**n1*(k1*r**2))/((k1*r**2+2**n1)*(k2*r**2+2**n1))*sv_trajectory_plots[:,SV11_i]**2)**0.5
+
+    if k2 > 0:
+        predicted_sys_non_norm = ((k2*n2*r**2*2**n1)/((k1*r**2+2**n1)*(k2*r**2+2**n1))*sv_trajectory_plots[:, SV11_i]**2 \
+                                    + ((n1-n2)*2**n1)/(k1*r**2+2**n1)*sv_trajectory_plots[:,SV12_i]**2)**0.5
+        
+        predicted_non_non_norm = ((k2*n2*r**2*(k1*r**2))/((k1*r**2+2**n1)*(k2*r**2+2**n1))*sv_trajectory_plots[:SV11_i]**2 \
+                                  + ((n1-n2)*(k1*r**2))/(k1*r**2+2**n1)*sv_trajectory_plots[:SV12_i]**2 \
+                                    + (2**n1-n1)*sv_trajectory_plots[:SV21_i]**2)**0.5
+    else:
+        predicted_sys_non_norm = np.zeros(predicted_sys_norm.shape)
+        predicted_non_non_norm = np.zeros(predicted_sys_norm)
+
+    quad_norms = [predicted_sys_sys_norm, predicted_non_sys_norm,predicted_sys_non_norm,predicted_non_non_norm]
+
+    return sv_trajectory_plots, predicted_sys_norm, predicted_non_norm,quad_norms,U_preds,V_T_preds,sv_indices
+    #when done with comp and non-comp apply formulas from the paper
+def init_random_params(scale, layer_sizes, seed):
+    #Returns a list of tuples where each tuple is the weight matrix bias vector for a layer
+    np.random.seed(seed)
+    return [np.random.normal(0.0,scale, (n,m)) for m, n in zip(layer_sizes[:-1], layer_sizes[1:])]
+
+@jit
+def predict(params, inputs):
+    # propagate data forward through the network
+    return jnp.dot(params[1], jnp.dot(params[0], inputs))
+
+@jit
+def loss(params, batch):
+    # loss over a batch of data
+    inputs, targets = batch
+    preds = predict(params, inputs)
+    return np.mean(np.sum(jnp.power((preds - targets), 2), axis = 1))
+
+    # Now we are doing the matrices for non-compositional features (k1, k2)
 
 # TODO: Questions to ask
 # TODO: Why are we specifying number of singular values to return if we have a function we use to return lower rank of the matrix
@@ -76,12 +205,83 @@ if __name__ =='__main__':
   k1 = 3 #k1 num nonsys reps input
   k2 = 1  #k2 num nonsys reps output
   r = 1 #r scale
+  a_init = 0
+  num_time_steps = 3
+  num_svds = 3
+
+  sv_preds, sxv_preds_inv = dynamic_formular(n1,n2,k1,k2,r,a_init,num_time_steps,num_svds)
+  print(sv_preds,sxv_preds_inv)
+
+  def updater(params, batch):
+      # function that updates model parameters
+      sigma_xx = (1/batch[0].shape[1])*np.dot(batch[0],batch[0].T)
+      sigma_yx = (1/batch[0].shape[1])*np.dot(batch[1], batch[0].T)
+      W2W1 = np.dot(params[1], params[0])
+      return [params[0] + ((1/tau) * np.dot(params[1].T, sigma_yx - np.dot(W2W1, sigma_xx))), \
+              params[1] + ((1/tau) * np.dot(sigma_yx - np.dot(W2W1, sigma_xx), params[0].T))]
+  num_hidden = 50
+  layer_sizes = [n1 + k1*2**n1, int(num_hidden), n2 + k2*2**n1]
+  step_size = 0.02
+  num_epochs = 300
+  param_scale = 0.01/float(num_hidden)
+  if k2 > 0:
+    num_svds = 2**n1
+  else:
+      num_svds = n2
+
+  seed = np.random.randint(0,100000)
+  trainings = np.zeros((num_epochs, num_svds, 1))
+  predictions = np.zeros(num_epochs, num_svds, 1)
+  sys_norms = np.zeros((num_epochs, 1))
+  non_norms = np.zeros((num_epochs, 1))
+  sys_sys_norms = np.zeros((num_epochs, 1))
+  sys_non_norms = np.zeros((num_epochs, 1))
+  non_sys_norms = np.zeros((num_epochs, 1))
+  non_non_norms = np.zeros((num_epochs, 1))
+  preds_sys_norms = np.zeros((num_epochs, 1))
+  preds_non_norms = np.zeros((num_epochs, 1))
+  preds_sys_sys_norms = np.zeros((num_epochs, 1))
+  preds_sys_non_norms = np.zeros((num_epochs, 1))
+  preds_non_sys_norms = np.zeros((num_epochs, 1))
+  preds_non_non_norms = np.zeros((num_epochs, 1))
+
+  #create dataset for training
+  X = np.flip(gen_binary_patterns(n1).T, axis = 1)
+  for i in range(k1):
+      X = np.vstack([X, r*np.eye(2**n1)])
+
+  #create dataset for labels
+  Y = np.flit(gen_binary_patterns(n1).T, axis = 1)
+  for i in range(k2):
+      Y = np.vstack([Y, r*np.eye(2**n1)])
+  Y_keep_feat = np.arange(Y.shape[0])
+  Y_delete = np.random.choice(n1, n1 - n2, replace = False)
+  Y_keep_feat = np.delete(Y_keep_feat, Y_delete)
+  Y = Y[Y_keep_feat]
+  print("input data is: \n",X)
+  print("initial labels are: \n", Y)
+  #variable defined the same as in the paper, used in dynamics formula
+  tau = 1/(X.shape[1]*step_size)
+
+  #Initial network parameters and initial network SVs to be small
+  params = init_random_params(param_scale, layer_sizes, seed)
+  a = np.ones(num_svds)
+  a[:n1] = a[:n1]*7e-7
+  a[n1:] = a[n1:]*7e-7
+  traj_real = a
+
+  #Get ground truth trajectories and same them for plotting at the end, as well as the matrices and SV indices for next generation
+  predictions, preds_sys_norms, preds_non_norms, preds_quad_norms, U, VT, sv_indices =\
+        dynamic_formular(n1, n2, k1, k2, r, a.reshape(1,num_svds), num_epochs, num_svds)
+  preds_sys_sys_norms = preds_quad_norms[0]
+  preds_non_sys_norms = preds_quad_norms[1]
+  
 
   # sample values 
-  A = np.array([[1,2,3],[4,5,6],[7,8,9]])
-  U = A*A.T
-  VT = (A.T*A).T
-  num_svds = k2
+#   A = np.array([[1,2,3],[4,5,6],[7,8,9]])
+#   U = A*A.T
+#   VT = (A.T*A).T
+#   num_svds = k2
 
-  U, s, VT = svs(A, U, VT, num_svds, k2)
-  print(f"U is: {U}, s is: {s}, VT is: {VT}")
+#   U, s, VT = svs(A, U, VT, num_svds, k2)
+#   print(f"U is: {U}, s is: {s}, VT is: {VT}")

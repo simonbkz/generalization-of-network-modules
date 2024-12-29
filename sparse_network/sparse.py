@@ -378,12 +378,3 @@ if __name__ =='__main__':
   plt.grid()
   plt.savefig('d_quad_norms_plot.pdf')
   plt.close() 
-
-  # sample values 
-#   A = np.array([[1,2,3],[4,5,6],[7,8,9]])
-#   U = A*A.T
-#   VT = (A.T*A).T
-#   num_svds = k2
-
-#   U, s, VT = svs(A, U, VT, num_svds, k2)
-#   print(f"U is: {U}, s is: {s}, VT is: {VT}")

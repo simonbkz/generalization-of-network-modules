@@ -25,11 +25,12 @@ def svs(A, U, VT, num_svds, k2):
 #TODO: test this and reference the literature if everything is code correctly (svs function make sense)
 #TODO: add following component and ensure it works with the above 
 #TODO: how are we separating dense from sparse network
+#TODO: test svs with examples from the internet and see how it is meant to work
+
 
 def gen_binary_patterns(num_features):
     # This generates compositional features 
-    # only applicable for compositional features, non compositional we take all features
-    # assumption is num rows will always be 2**columns (definition of compositional input feature space)
+    # only applicable for compositional features, non compositional features will be on the diagonal (yes/no) and not featured in this method
     data = np.ones((2**num_features, num_features))*-1.0 #generate data placeholder matrix, ensure all entries are -1
     # below methodology is adopted from where (paper ?)
     for j in np.arange(0, num_features, 1):
@@ -39,6 +40,8 @@ def gen_binary_patterns(num_features):
         data[idx,j] = 1
     data = np.flip(data, axis=1)
     return data
+#TODO: what has inspired the creation of the gen_binary_patterns function, is this meant to mimick the examples from SCAN dataset and how has it been adapted 
+
 
 # TODO: we will need to unpack the dynamic_formular which generates the data that we need
 def dynamic_formular(n1,n2, k1, k2, r, a_init, num_time_steps, num_svds):
@@ -53,29 +56,29 @@ def dynamic_formular(n1,n2, k1, k2, r, a_init, num_time_steps, num_svds):
     k2 = 1 #num non-sys outputs
 
     #coding X and Y for ease of testing in this 
-    X = np.flip(gen_binary_patterns(n1).T, axis=1)
-    for i in range(k1):
-        X = np.vstack([X, r*np.eye(2**n1)])
+    # X = np.flip(gen_binary_patterns(n1).T, axis=1) #flip to maintain original structure of dataset
+    # for i in range(k1):
+    #     X = np.vstack([X, r*np.eye(2**n1)])
 
-    # Create Dataset labels
-    Y = np.flip(gen_binary_patterns(n1).T, axis=1)
-    for i in range(k2):
-        Y = np.vstack([Y, r*np.eye(2**n1)])
-    Y_keep_feat = np.arange(Y.shape[0])
-    Y_delete = np.random.choice(n1, n1-n2, replace=False)
-    Y_keep_feat = np.delete(Y_keep_feat, Y_delete)
-    Y = Y[Y_keep_feat]
-    print("Input Data: \n", X)
-    print("Initial Labels: \n", Y)
-    batch_size = X.shape[1]
-    start_labels = np.copy(Y)
-    step_size = 0.02
-    tau = 1/(X.shape[1]*step_size)
+    # # Create Dataset labels
+    # Y = np.flip(gen_binary_patterns(n1).T, axis=1)
+    # for i in range(k2):
+    #     Y = np.vstack([Y, r*np.eye(2**n1)])
+    # Y_keep_feat = np.arange(Y.shape[0])
+    # Y_delete = np.random.choice(n1, n1-n2, replace=False)
+    # Y_keep_feat = np.delete(Y_keep_feat, Y_delete)
+    # Y = Y[Y_keep_feat]
+    # print("Input Data: \n", X)
+    # print("Initial Labels: \n", Y)
+    # batch_size = X.shape[1]
+    # start_labels = np.copy(Y)
+    # step_size = 0.02
+    # tau = 1/(X.shape[1]*step_size)
 
-    num_svds = 2**n1
-    a = np.ones(num_svds)
-    a[:n1] = a[:n1]*7e-7
-    a[n1:] = a[n1:]*8e-7
+    # num_svds = 2**n1
+    # a = np.ones(num_svds)
+    # a[:n1] = a[:n1]*7e-7
+    # a[n1:] = a[n1:]*8e-7
 
     # extracting compositional matrix
     # understand from literature why we are reversing the order of data to create Y and X
@@ -87,7 +90,7 @@ def dynamic_formular(n1,n2, k1, k2, r, a_init, num_time_steps, num_svds):
     if k1 > 0 and k2 > 0:
         XZ = (1/(k1*k2))**0.5*np.eye(2**n1) - (1/((k1*k2)**0.5*2**n1))*np.dot(X[:n1].T, X[:n1])
         T, H, P = np.linalg.svd(XZ)
-        T = (1/(k2))**0.5*T[:, :2*n1-n1]
+        T = (1/(k2))**0.5*T[:, :(2**n1-n1)+3]
         P = (1/(k1))**0.5*P[:2**n1-n1]
     else:
         XZ = (1/(k1))**0.5*np.eye(2**n1) - (1/((k1)**0.5*2**n1))*np.dot(X[:n1].T,X[:n1])
@@ -131,7 +134,7 @@ def dynamic_formular(n1,n2, k1, k2, r, a_init, num_time_steps, num_svds):
         U_preds = np.vstack([U_preds, U2*B + U3*(C-B)])
 
     if k2 > 0:
-        U_nonsys_part = np.zeros((n2, 2**n1-5))
+        U_nonsys_part = np.zeros((n2, 2**n1))
         for _ in range(k2):
             U_nonsys_part = np.vstack([U_nonsys_part, T])
         U_preds = np.hstack([U_preds, U_nonsys_part])
@@ -245,10 +248,16 @@ if __name__ =='__main__':
   step_size = 0.02
   num_epochs = 300
   param_scale = 0.01/float(num_hidden)
+  # if there is non systematic output, we need to have 2**n1 singular values, otherwise we need systematic output
   if k2 > 0:
     num_svds = 2**n1
   else:
       num_svds = n2
+
+  a = np.ones(num_svds)
+  a[:n1] = a[:n1]*7e-7
+  a[n1:] = a[n1:]*7e-7
+  traj_real = a
 
   seed = np.random.randint(0,100000)
   trainings = np.zeros((num_epochs, num_svds, 1))
@@ -276,6 +285,7 @@ if __name__ =='__main__':
   Y = np.flip(gen_binary_patterns(n1).T, axis = 1)
   for i in range(k2):
       Y = np.vstack([Y, r*np.eye(2**n1)])
+
   Y_keep_feat = np.arange(Y.shape[0])
   Y_delete = np.random.choice(n1, n1 - n2, replace = False)
   Y_keep_feat = np.delete(Y_keep_feat, Y_delete)
@@ -289,11 +299,8 @@ if __name__ =='__main__':
   tau = 1/(X.shape[1]*step_size)
 
   #Initial network parameters and initial network SVs to be small
+  #returns weight and bias matrices for each layer
   params = init_random_params(param_scale, layer_sizes, seed)
-  a = np.ones(num_svds)
-  a[:n1] = a[:n1]*7e-7
-  a[n1:] = a[n1:]*7e-7
-  traj_real = a
 
   #Get ground truth trajectories and same them for plotting at the end, as well as the matrices and SV indices for next generation
   predictions, preds_sys_norms, preds_non_norms, preds_quad_norms, U, VT, sv_indices =\
@@ -311,7 +318,7 @@ if __name__ =='__main__':
       lossr = loss(params, (X,Y))
       losses[epoch] = lossr
       print(lossr)
-      full_map = np.dot(params[1], params[0])
+      full_map = np.dot(params[1], params[0]) #multiply weight and bias matrices to get full mapping
       _, a, _ = svs(full_map, U, VT, num_svds, k2)
       traj_real = np.vstack([traj_real, a])
 
@@ -331,7 +338,7 @@ if __name__ =='__main__':
   unique_svs, unique_indices = np.unique(predictions[-1,:], return_index = True)
   unique_indices = unique_indices[::-1]
   unique_svs = np.round(unique_svs, 2)[::-1]
-  colours = {unique_indices[i]: colours_arr[i] for i in range(unique_svs.shape[0])} 
+  colours = {unique_svs[i]: colours_arr[i] for i in range(unique_svs.shape[0])} 
   print("Num Plots: ", trainings.shape[2])
   for j in [unique_indices[0], unique_indices[1], unique_indices[2]]:
       identifier = colours[np.round(predictions[-1,j],2)]

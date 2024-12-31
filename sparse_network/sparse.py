@@ -9,22 +9,26 @@ import jax.numpy as jnp
 def svs(A, U, VT, num_svds, k2):
     # Gets singular values of A using A's singular vectors U and VT (keeps singular values aligned for plotting, unlike np.linalg.svd)
     # input params
-    # : A --> matrix needed to decompose
+    # : A --> matrix that is a full mapping of the network
     # : U --> left orthogonal matrix
-    # : VT --> right orthogonal matrix
+    # : VT --> right transpose orthogonal matrix
     # : num_svds --> number of singular values needed to retain
-    # : k2 --> not yet clear
+    # : k2 --> number of non-systematic outputs
+    #output the rank of A - this determines the number of singular values that are returned
+    # use rank of A and num_svds and check if there are any discrepancies between the two
     S = np.dot(U.T, np.dot(A,VT.T)) #SDV
     small_length = np.min([S.shape[0], S.shape[1]]) #lower-rank sub-structure, from S return fewest columns or rows and that is the lowest rank
     s = np.array([S[i,i] for i in range(small_length)]) # construct a list of singular values, sorted from highest to lowest
-    if k2 == 0:
+    if k2 == 0: 
         s = np.sort(s)[::-1] #only sorting eigenvalues if k2 == 0, otherwise not going to sort it
     s = s[:num_svds] #under what conditions are these not sorted, k2 == 1 and means will not be sorted
+    # s is not sorted here
     return U, s, VT
 
 #TODO: test this and reference the literature if everything is code correctly (svs function make sense)
 #TODO: add following component and ensure it works with the above 
 #TODO: how are we separating dense from sparse network
+#TODO:   dense and sparse network are separated by the number of singular values that are returned?
 #TODO: test svs with examples from the internet and see how it is meant to work
 
 
@@ -44,7 +48,7 @@ def gen_binary_patterns(num_features):
 
 
 # TODO: we will need to unpack the dynamic_formular which generates the data that we need
-def dynamic_formular(n1,n2, k1, k2, r, a_init, num_time_steps, num_svds):
+def dynamic_formular(X,Y,n1,n2, k1, k2, r, a_init, num_time_steps, num_svds):
     """
     return predictions of training dynamics of the linear network using formular for the Singular Vector Decomposition for the first generation of training
     sets up some constant matrices consistent with those used in the appendix of specialisation of network modules for the svd equations
@@ -80,9 +84,8 @@ def dynamic_formular(n1,n2, k1, k2, r, a_init, num_time_steps, num_svds):
     # a[:n1] = a[:n1]*7e-7
     # a[n1:] = a[n1:]*8e-7
 
-    # extracting compositional matrix
-    # understand from literature why we are reversing the order of data to create Y and X
-    A = np.dot(np.dot(Y[:n2], X[:n1].T).T, np.dot(Y[:n2],X[:n1].T)) #this is 
+    # below matrices come from definitions derived from the paper
+    A = np.dot(np.dot(Y[:n2], X[:n1].T).T, np.dot(Y[:n2], X[:n1].T)) #this is 
     B = np.dot(np.dot(Y[:n2].T, Y[:n2]), X[:n1].T)
     C = np.dot(np.dot(X[:n1].T, X[:n1]),X[:n1].T)
     AX = np.dot(np.dot(X[:n1], X[:n1].T).T, np.dot(X[:n1], X[:n1].T))
@@ -200,6 +203,7 @@ def dynamic_formular(n1,n2, k1, k2, r, a_init, num_time_steps, num_svds):
 def init_random_params(scale, layer_sizes, seed):
     #Returns a list of tuples where each tuple is the weight matrix bias vector for a layer
     np.random.seed(seed)
+    #
     return [np.random.normal(0.0,scale, (n,m)) for m, n in zip(layer_sizes[:-1], layer_sizes[1:])]
 
 @jit
@@ -219,7 +223,7 @@ def loss(params, batch):
 # TODO: Questions to ask
 # TODO: Why are we specifying number of singular values to return if we have a function we use to return lower rank of the matrix
 # TODO: where is the methodology of generating binary patterns adopted from
-# TODO: Why are we reversing the order of X and Y from the data
+# TODO: Why are we reversing the order of X and Y from the data, X and Y flipped to effectively slice the data
 
 if __name__ =='__main__':
   
@@ -248,12 +252,12 @@ if __name__ =='__main__':
   step_size = 0.02
   num_epochs = 300
   param_scale = 0.01/float(num_hidden)
-  # if there is non systematic output, we need to have 2**n1 singular values, otherwise we need systematic output
+  # if there is non systematic output (identity matrix), we need to have 2**n1 singular values, otherwise we need systematic output
   if k2 > 0:
     num_svds = 2**n1
   else:
       num_svds = n2
-
+  #TODO: initializing a 
   a = np.ones(num_svds)
   a[:n1] = a[:n1]*7e-7
   a[n1:] = a[n1:]*7e-7
@@ -276,7 +280,7 @@ if __name__ =='__main__':
   preds_non_non_norms = np.zeros((num_epochs, 1))
   losses = np.zeros((num_epochs,1))
 
-  #create dataset for training
+  #create dataset for training, this will give us k1 identity matrices
   X = np.flip(gen_binary_patterns(n1).T, axis = 1)
   for i in range(k1):
       X = np.vstack([X, r*np.eye(2**n1)])
@@ -304,7 +308,7 @@ if __name__ =='__main__':
 
   #Get ground truth trajectories and same them for plotting at the end, as well as the matrices and SV indices for next generation
   predictions, preds_sys_norms, preds_non_norms, preds_quad_norms, U, VT, sv_indices =\
-        dynamic_formular(n1, n2, k1, k2, r, a.reshape(1,num_svds), num_epochs, num_svds)
+        dynamic_formular(X,Y,n1, n2, k1, k2, r, a.reshape(1,num_svds), num_epochs, num_svds)
   preds_sys_sys_norms = preds_quad_norms[0]
   preds_non_sys_norms = preds_quad_norms[1]
   preds_sys_non_norms = preds_quad_norms[2] 

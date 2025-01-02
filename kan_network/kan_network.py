@@ -33,6 +33,7 @@ def gen_binary_patterns(num_features):
     data = np.flip(data, axis=1)
     return data
 
+#TODO: check the difference between the network configs on shallow, and deep networks coded on specialization
 #TODO: define the update function, does the function update relu function or the weights
 #TODO: sparsity of the network
 #TODO: do we have both the weights and learnable functions on the edges?

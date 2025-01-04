@@ -15,6 +15,7 @@ def piece_wise_f(x):
   return 2*x - 2.5
 
 def update(params, batch):
+  #this function will be looking into the shallow strucutre of the network
   #function to update paramaters of the network
   # weights replaced by function that is learnable, which are relu functions for simplicity
   #The following happens for each batch
@@ -24,7 +25,10 @@ def update(params, batch):
   #TODO: parameters are then updated using these gradients via optimization algorithm like SGD, Adam, etc
   sigma_xx = (1/batch[0].shape[1]) * np.dot(batch[0], batch[0].T) #is this derived from literature?
   sigma_xy = (1/batch[0].shape[1]) * np.dot(batch[0], batch[1].T)
+  #TODO: We need to compute W2W1 input-ouput mapping for KANs
   return params
+
+#TODO: we need to define an update function for sparse KAN networks
 
 def gen_binary_patterns(num_features):
     # This generates compositional features 
@@ -38,6 +42,11 @@ def gen_binary_patterns(num_features):
         data[idx,j] = 1
     data = np.flip(data, axis=1)
     return data
+
+def initialize_random_params(scale, layer_size, seed):
+   r"This function creates a random mapping between the edge (relu) to the next neuron. "
+   np.random.seed(seed)
+   return [np.random.normal(0.0,scale,(n,m)) for m, n in zip(layer_size[:-1], layer_size[1:])]
 
 #TODO: universal approximation theorem underlies the neural network logic, any feedforward neural network can approximated any continuous function under certain conditions 
 #TODO: Komogorov Arnold theorem states that any multivariate continuous function can be replicated by adding univariate functions or feeding one into the other 

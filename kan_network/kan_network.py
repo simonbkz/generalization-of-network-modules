@@ -55,6 +55,17 @@ def create_architecture(X, Y, input_size, output_size, k, num_hidden):
    X_conf = torch.cat([shifted[:,:1,:], torch.relu(shifted[:,1:,:])], dim=1).flatten(1) #proxy of weights, bias applied to X
    return X_conf
 
+@jit
+def predict(linear_l, params):
+  preds = linear_l(params)
+  return jnp.array(preds)
+
+@jit
+def loss(params, batch, linear_l):
+   inputs, targets = batch
+   preds = predict(linear_l, inputs)
+   return np.mean(np.sum(jnp.power((preds - targets)),2), axis = 1)
+
 #TODO: universal approximation theorem underpins the neural network logic, any feedforward neural network can approximated any continuous function under certain conditions 
 #TODO: Komogorov Arnold theorem states that any multivariate continuous function can be replicated by adding univariate functions or feeding one into the other 
 #TODO: check the difference between the network configs on shallow, and deep networks coded on specialization
@@ -142,11 +153,11 @@ if __name__ == '__main__':
   start_labels = np.copy(Y)
   step_size = 0.02
 
-  X = create_architecture(X_, Y_, inp_size, out_size, k, num_hidden)
+  X = create_architecture(X_, Y_, inp_size, out_size, k, num_hidden) # we will update this function for subsequent layers
   #traditionally we would have had, x*w
   # outputs = linear(intermediate) #propagate forward, no back propagation yet
 
-#   X = torch.linspace(-2, 2, 100)
-#   plt.plot(X, [piece_wise_f(x) for x in X])
-#   plt.grid()
-#   plt.show()
+  for epoch in range(num_epochs):
+     #We only have two batches
+     for batch_start in range(0, X.shape[1], batch_size):
+        batch = (X[:,batch_start:batch_start+batch_size], Y[:,batch_start:batch_start+batch_size])

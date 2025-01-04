@@ -16,8 +16,14 @@ def piece_wise_f(x):
 
 def update(params, batch):
   #function to update paramaters of the network
-  # weights replaced by function that is learnable
-
+  # weights replaced by function that is learnable, which are relu functions for simplicity
+  #The following happens for each batch
+  #TODO: perform forward pass here
+  #TODO: compute the loss
+  #TODO: perform backward pass using backpropagation to compute gradients
+  #TODO: parameters are then updated using these gradients via optimization algorithm like SGD, Adam, etc
+  sigma_xx = (1/batch[0].shape[1]) * np.dot(batch[0], batch[0].T) #is this derived from literature?
+  sigma_xy = (1/batch[0].shape[1]) * np.dot(batch[0], batch[1].T)
   return params
 
 def gen_binary_patterns(num_features):
@@ -33,12 +39,18 @@ def gen_binary_patterns(num_features):
     data = np.flip(data, axis=1)
     return data
 
+#TODO: universal approximation theorem underlies the neural network logic, any feedforward neural network can approximated any continuous function under certain conditions 
+#TODO: Komogorov Arnold theorem states that any multivariate continuous function can be replicated by adding univariate functions or feeding one into the other 
 #TODO: check the difference between the network configs on shallow, and deep networks coded on specialization
-#TODO: define the update function, does the function update relu function or the weights
+#TODO: define the update function, does the function update relu function or the weights, weights are replaced by learnable functions (https://arxiv.org/pdf/2407.11075v4)
 #TODO: sparsity of the network
-#TODO: do we have both the weights and learnable functions on the edges?
+#TODO: We only have learnable functions on edge instead of weights, this is the key difference between KAN and MLP
 #TODO: grid for piecewise function being the same, what does this mean
 #TODO: define mapping of KANs
+#TODO: objective of learnable functions, decide which learnable function is the best between two neurons
+#TODO: How are we going to do the exact solution of KANs
+#TODO: are we able to specify the function we will be approximating with the KANs
+#TODO: 
 
 if __name__ == '__main__':
 
@@ -57,8 +69,8 @@ if __name__ == '__main__':
   out_size = 7
   batch_size = 10
   batch_size_y = 7
-  # X = torch.randn(batch_size, inp_size) # Our input
-  # Y = torch.randn(batch_size_y, out_size) # Our output
+  X_ = torch.randn(batch_size, inp_size) # Our input
+  Y_ = torch.randn(batch_size_y, out_size) # Our output
 
   num_hidden = 50
   layer_sizes = [n1 + k1*2**n1, int(num_hidden), n2 + k2*2**n1]

@@ -43,12 +43,19 @@ def gen_binary_patterns(num_features):
     data = np.flip(data, axis=1)
     return data
 
-def initialize_random_params(scale, layer_size, seed):
+def create_architecture(X, Y, input_size, output_size, k, num_hidden):
    r"This function creates a random mapping between the edge (relu) to the next neuron. "
-   np.random.seed(seed)
-   return [np.random.normal(0.0,scale,(n,m)) for m, n in zip(layer_size[:-1], layer_size[1:])]
+  #  linear = nn.Linear(input_size*k, output_size)  # kan architecture when k > 1 as each spline will just be an activation function where we can customize different activation functions for different parts of the input space
 
-#TODO: universal approximation theorem underlies the neural network logic, any feedforward neural network can approximated any continuous function under certain conditions 
+   repeated = X.unsqueeze(1).repeat(1,k,1) #we are repeating the input k times, transforming KAN to MLP
+   shifts = torch.linspace(-1, 1, k).reshape(1,k,1) #c constants for each piecewise function
+
+   shifted = repeated + shifts
+   # grid is shared, we use the same relu for C2 and C3
+   X_conf = torch.cat([shifted[:,:1,:], torch.relu(shifted[:,1:,:])], dim=1).flatten(1) #proxy of weights, bias applied to X
+   return X_conf
+
+#TODO: universal approximation theorem underpins the neural network logic, any feedforward neural network can approximated any continuous function under certain conditions 
 #TODO: Komogorov Arnold theorem states that any multivariate continuous function can be replicated by adding univariate functions or feeding one into the other 
 #TODO: check the difference between the network configs on shallow, and deep networks coded on specialization
 #TODO: define the update function, does the function update relu function or the weights, weights are replaced by learnable functions (https://arxiv.org/pdf/2407.11075v4)
@@ -135,16 +142,9 @@ if __name__ == '__main__':
   start_labels = np.copy(Y)
   step_size = 0.02
 
-  linear = nn.Linear(inp_size*k, out_size)  # kan architecture when k > 1 as each spline will just be an activation function where we can customize different activation functions for different parts of the input space
-
-  repeated = X.unsqueeze(1).repeat(1,k,1) #we are repeating the input k times, transforming KAN to MLP
-  shifts = torch.linspace(-1, 1, k).reshape(1,k,1) #c constants for each piecewise function
-
-  shifted = repeated + shifts
-  # grid is shared, we use the same relu for C2 and C3
-  intermediate = torch.cat([shifted[:,:1,:], torch.relu(shifted[:,1:,:])], dim=1).flatten(1) #investigate more here
-
-  outputs = linear(intermediate) #propagate forward, no back propagation yet
+  X = create_architecture(X_, Y_, inp_size, out_size, k, num_hidden)
+  #traditionally we would have had, x*w
+  # outputs = linear(intermediate) #propagate forward, no back propagation yet
 
 #   X = torch.linspace(-2, 2, 100)
 #   plt.plot(X, [piece_wise_f(x) for x in X])

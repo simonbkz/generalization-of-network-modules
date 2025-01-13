@@ -26,6 +26,7 @@ def update(params, batch):
   sigma_xx = (1/batch[0].shape[1]) * np.dot(batch[0], batch[0].T) #is this derived from literature?
   sigma_xy = (1/batch[0].shape[1]) * np.dot(batch[0], batch[1].T)
   #TODO: We need to compute W2W1 input-ouput mapping for KANs
+  #TODO: shallow is different to deep network in this update function, see where this is referenced in the paper
   return params
 
 #TODO: we need to define an update function for sparse KAN networks
@@ -45,6 +46,7 @@ def gen_binary_patterns(num_features):
 
 def create_architecture(X, Y, input_size, output_size, k, num_hidden):
    r"This function creates a random mapping between the edge (relu) to the next neuron. "
+   #TODO: this function needs to be written in jax instead of pytorch
   #  linear = nn.Linear(input_size*k, output_size)  # kan architecture when k > 1 as each spline will just be an activation function where we can customize different activation functions for different parts of the input space
 
    repeated = X.unsqueeze(1).repeat(1,k,1) #we are repeating the input k times, transforming KAN to MLP
@@ -54,6 +56,15 @@ def create_architecture(X, Y, input_size, output_size, k, num_hidden):
    # grid is shared, we use the same relu for C2 and C3
    X_conf = torch.cat([shifted[:,:1,:], torch.relu(shifted[:,1:,:])], dim=1).flatten(1) #proxy of weights, bias applied to X
    return X_conf
+
+#Now we want to break the input-output data into systematic and non-systematic components
+#We will use the same method dynamic formular
+def dynamic_formular():
+   r"""this funnction produces systematic inputs and systematic outputs"""
+   #TODO: we need analysis of whether this function will require any modifications, this only manipulates the structure of the data
+   #TODO: structure of the data will not change, thus this function will remain the same as in the specialization paper
+   dummy = 0
+   return dummy
 
 @jit
 def predict(linear_l, params):
